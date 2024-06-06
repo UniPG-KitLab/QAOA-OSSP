@@ -34,7 +34,7 @@ class Experiment:
         Returns:
             tuple: QAOA parameters and estimated energy.
         """
-        x = np.random.random(size=2 * p) * np.pi
+        x = np.random.random(size=2 * p) * np.pi * 2 
         m = self.o.estimate_qc(x)
         return x, m
 
