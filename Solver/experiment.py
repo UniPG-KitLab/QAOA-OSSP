@@ -3,26 +3,37 @@ import time
 import numpy as np
 import csv
 import json
-import argparse
 from create_circuit_over_list_coloring import OverconstrainedListColoring
 from utils import create_directories
 
-
 class Experiment:
 
-    def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 200, penalty: int = 1, optimizer: str = "COBYLA"):
+    def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 200, penalty: int = 1, optimizer: str = "COBYLA", log_to_file: bool = False, save_samples: bool = False):
         self.fname = fname
         self.minp = minp
         self.maxp = maxp
         self.n_samples = n_samples
         self.penalty = penalty
         self.optimizer = optimizer
+        self.log_to_file = log_to_file
+        self.save_samples = save_samples
         self.o = OverconstrainedListColoring("Test2/" + fname, optimizer)
         self.o.penalty = penalty
-        split_name = fname.split(".")[0]
         
-        # Create the directories using the utility function and save the name csv with the name of optimizer
-        self.res_filename, self.log_filename, self.sampler_dir = create_directories(split_name, f"{split_name}_{optimizer}.csv")
+        # Remove extension from fname for naming
+        self.split_name = os.path.splitext(os.path.basename(fname))[0]
+
+        # Always create the results directory
+        self.res_filename, results_dir, _ = create_directories(self.split_name, f"{self.split_name}_{optimizer}.csv")
+
+        # Flag for create the log and sampler directories
+        if self.log_to_file or self.save_samples:
+            _, log_file_path, sampler_dir = create_directories(self.split_name, f"{self.split_name}_{optimizer}.csv", create_log=self.log_to_file, create_sampler=self.save_samples)
+            self.log_filename = log_file_path if self.log_to_file else None
+            self.sampler_dir = sampler_dir if self.save_samples else None
+        else:
+            self.log_filename = None
+            self.sampler_dir = None
 
     def sample(self, p: int):
         """
@@ -38,77 +49,80 @@ class Experiment:
         m = self.o.estimate_qc(x)
         return x, m
 
+    def log(self, message):
+        """
+        Logs a message to the terminal or to a file.
+
+        Args:
+            message (str): Message to log.
+        """
+        if self.log_to_file:
+            with open(self.log_filename, "a") as flog:
+                print(message, file=flog)
+        else:
+            print(message)
+
     def run(self):
-        with open(self.log_filename, "a") as flog:
-            print(f"Solving {self.fname} with penalty {self.penalty} using {self.optimizer}", file=flog)
-            flog.flush()
+        self.log(f"Solving {self.fname} with penalty {self.penalty} using {self.optimizer}\n")
+        
+        self.o.find_optimal_solution()
 
-            self.o.find_optimal_solution()
+        if not os.path.exists(self.res_filename):
+            with open(self.res_filename, "w", newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Filename", "Penalty", "P", "Function_Value", "Optimal_X", "Distribution"])
 
-            if not os.path.exists(self.res_filename):
-                with open(self.res_filename, "w", newline='') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(["Filename", "Penalty", "P", "Function_Value", "Optimal_X", "Distribution"])
+        self.log(f"Optimal solution value {self.o.f_optimum} found")
 
-            print(f"Optimal solution value {self.o.f_optimum} found", file=flog)
-            flog.flush()
+        for p in range(self.minp, self.maxp + 1):
+            self.log(f"Phase {p}")
 
-            for p in range(self.minp, self.maxp + 1):
-                print(f"Phase {p}", file=flog)
-                flog.flush()
+            self.o.create_qaoa_circuit(p)
+            self.o.create_hamiltonian()
+            self.log("Start sampling")
 
-                self.o.create_qaoa_circuit(p)
-                self.o.create_hamiltonian()
-                print("Start sampling", file=flog)
-                flog.flush()
+            st = time.time()
+            xx = [self.sample(p) for _ in range(self.n_samples)]
+            deltat = time.time() - st
 
-                st = time.time()
-                xx = [self.sample(p) for _ in range(self.n_samples)]
-                deltat = time.time() - st
-
-                sample_filename = os.path.join(self.sampler_dir, f"sample_{self.fname}_{self.penalty}_{p}.csv")
+            if self.save_samples and self.sampler_dir:
+                sample_filename = os.path.join(self.sampler_dir, f"sample_{self.split_name}_{self.penalty}_{p}.csv")
                 with open(sample_filename, "w", newline='') as f:
                     for x, m in xx:
                         print(",".join(str(d) for d in x), ",", m, file=f)
 
-                print("End sampling after", deltat, "s", file=flog)
-                flog.flush()
+            self.log(f"End sampling after {deltat} s")
 
-                x, y = min(xx, key=lambda c: c[1])
-                print(f"Best energy {y}", file=flog)
-                flog.flush()
+            x, y = min(xx, key=lambda c: c[1])
+            self.log(f"Best energy {y}")
 
-                print(f"Start {self.optimizer} optimization", file=flog)
-                flog.flush()
+            self.log(f"Start {self.optimizer} optimization")
 
-                st = time.time()
-                opt = self.o.optimize_circuit_energy(x)
-                deltat = time.time() - st
+            st = time.time()
+            opt = self.o.optimize_circuit_energy(x)
+            deltat = time.time() - st
 
-                print(f"End {self.optimizer} optimization after {deltat} s with energy {opt[1]}", file=flog)
-                flog.flush()
+            self.log(f"End {self.optimizer} optimization after {deltat} s with energy {opt[1]}")
 
-                print("Start post-processing", file=flog)
-                flog.flush()
+            self.log("Start post-processing")
 
-                st = time.time()
-                self.o.create_qaoa_circuit(p)
-                n_shots = 2048
-                counts = self.o.simulate_qc(opt[0], shots=n_shots)
-                res = self.o.analyze_data(counts)
-                deltat = time.time() - st
+            st = time.time()
+            self.o.create_qaoa_circuit(p)
+            n_shots = 2048
+            counts = self.o.simulate_qc(opt[0], shots=n_shots)
+            res = self.o.analyze_data(counts)
+            deltat = time.time() - st
 
-                print(f"End post-processing after {deltat} s", file=flog)
-                flog.flush()
+            self.log(f"End post-processing after {deltat} s")
 
-                distr = res["distr"].most_common()
-                
-                # Serialize array 
-                opt_x_str = json.dumps(opt[0].tolist())
+            distr = res["distr"].most_common()
+            
+            # Serialize array 
+            opt_x_str = json.dumps(opt[0].tolist())
 
-                # Serialize distribution 
-                str_distr = json.dumps(",".join(f"{k},{n}" for k, n in distr))
+            # Serialize distribution 
+            str_distr = json.dumps(",".join(f"{k},{n}" for k, n in distr))
 
-                with open(self.res_filename, "a", newline='') as f:
-                    writer = csv.writer(f)
-                    writer.writerow([self.fname, self.penalty, p, f"{opt[1]:.3f}", opt_x_str, str_distr])
+            with open(self.res_filename, "a", newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([self.fname, self.penalty, p, f"{opt[1]:.3f}", opt_x_str, str_distr])
