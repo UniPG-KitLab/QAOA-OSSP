@@ -92,11 +92,8 @@ class OverconstrainedListColoring:
 
         for v in range(self.num_vertices):
             x1 = [x[i] for i in self.qubits[v]]
+            assert (sum(x1)==1)
             nb = sum(x1)
-
-            if nb != 1:
-                print(f"vertex {v} has {nb} bits equal to 1")
-                return None
             colors[v] = x1.index(1)
 
         return colors

@@ -8,7 +8,7 @@ from utils import create_directories
 
 class Experiment:
 
-    def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 200, penalty: int = 1, optimizer: str = "COBYLA", log_to_file: bool = False, save_samples: bool = False):
+    def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 200, n_point_opt: int = 10, penalty: int = 1, optimizer: str = "COBYLA", log_to_file: bool = False, save_samples: bool = False):
         self.fname = fname
         self.minp = minp
         self.maxp = maxp
@@ -19,6 +19,7 @@ class Experiment:
         self.save_samples = save_samples
         self.o = OverconstrainedListColoring("Test2/" + fname, optimizer)
         self.o.penalty = penalty
+        self.n_point_opt = n_point_opt
         
         # Remove extension from fname for naming
         self.split_name = os.path.splitext(os.path.basename(fname))[0]
@@ -93,23 +94,30 @@ class Experiment:
 
             self.log(f"End sampling after {deltat} s")
 
-            x, y = min(xx, key=lambda c: c[1])
-            self.log(f"Best energy {y}")
+            # Sort result by energy 
+            xx.sort(key=lambda c: c[1])
+            best_results = [] 
 
-            self.log(f"Start {self.optimizer} optimization")
+            for i in range(self.n_point_opt):
+                x_start = xx[i][0]
 
-            st = time.time()
-            opt = self.o.optimize_circuit_energy(x)
-            deltat = time.time() - st
-
-            self.log(f"End {self.optimizer} optimization after {deltat} s with energy {opt[1]}")
+                self.log(f"Start COBYLA run {i+1}")
+                
+                st = time.time()
+                opt = self.o.optimize_circuit_energy(x_start)
+                deltat = time.time() - st
+                best_results.append(opt)
+                
+                self.log(f"End COBYLA run {i+1} after {deltat} s with energy {opt[1]}")
+            
+            best_opt = min(best_results, key=lambda opt: opt[1])
 
             self.log("Start post-processing")
 
             st = time.time()
             self.o.create_qaoa_circuit(p)
             n_shots = 2048
-            counts = self.o.simulate_qc(opt[0], shots=n_shots)
+            counts = self.o.simulate_qc(best_opt[0], shots=n_shots)
             res = self.o.analyze_data(counts)
             deltat = time.time() - st
 
@@ -118,11 +126,11 @@ class Experiment:
             distr = res["distr"].most_common()
             
             # Serialize array 
-            opt_x_str = json.dumps(opt[0].tolist())
+            opt_x_str = json.dumps(best_opt[0].tolist())
 
             # Serialize distribution 
             str_distr = json.dumps(",".join(f"{k},{n}" for k, n in distr))
 
             with open(self.res_filename, "a", newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow([self.fname, self.penalty, p, f"{opt[1]:.3f}", opt_x_str, str_distr])
+                writer.writerow([self.fname, self.penalty, p, f"{best_opt[1]:.3f}", opt_x_str, str_distr])
