@@ -47,7 +47,7 @@ def analysis(filename):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process a CSV file for analysis.')
-    parser.add_argument('filename', required=True, type=str, help='the CSV file to be processed')
+    parser.add_argument('filename', type=str, help='the CSV file to be processed')
     args = parser.parse_args()
 
     analysis(args.filename)
