@@ -25,7 +25,10 @@ class Experiment:
         self.split_name = os.path.splitext(os.path.basename(fname))[0]
 
         # Always create the results directory
-        self.res_filename, results_dir, _ = create_directories(self.split_name, f"{self.split_name}_{optimizer}.csv")
+        results_dir = "results"
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
+        self.res_filename = os.path.join(results_dir, f"{self.split_name}_{optimizer}.csv")
 
         # Flag for create the log and sampler directories
         if self.log_to_file or self.save_samples:
@@ -101,14 +104,14 @@ class Experiment:
             for i in range(self.n_point_opt):
                 x_start = xx[i][0]
 
-                self.log(f"Start COBYLA run {i+1}")
+                self.log(f"Start {self.optimizer} run {i+1}")
                 
                 st = time.time()
                 opt = self.o.optimize_circuit_energy(x_start)
                 deltat = time.time() - st
                 best_results.append(opt)
                 
-                self.log(f"End COBYLA run {i+1} after {deltat} s with energy {opt[1]}")
+                self.log(f"End {self.optimizer} run {i+1} after {deltat} s with energy {opt[1]}")
             
             best_opt = min(best_results, key=lambda opt: opt[1])
 
@@ -134,3 +137,4 @@ class Experiment:
             with open(self.res_filename, "a", newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow([self.fname, self.penalty, p, f"{best_opt[1]:.3f}", opt_x_str, str_distr])
+
