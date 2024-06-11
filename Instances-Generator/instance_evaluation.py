@@ -1,8 +1,13 @@
-import json 
-import os 
+import os
 import csv
 import sys
+import re
 from Solver.create_circuit_over_list_coloring import OverconstrainedListColoring
+
+def extract_final_number(filename):
+    """ Extract the final number in the filename """
+    match = re.search(r'_(\d+)\.json$', filename)
+    return int(match.group(1)) if match else None
 
 def instance_evaluation(file):
     print(f"Evaluating instance: {file}")
@@ -38,6 +43,9 @@ def main(instance_folder, output_file):
 
     # List all JSON files 
     instance_files = [os.path.join(instance_folder, f) for f in os.listdir(instance_folder) if f.endswith('.json')]
+
+    # Sort files based on the final number in their name
+    instance_files.sort(key=lambda x: extract_final_number(x))
 
     for instance_file in instance_files:
         result = instance_evaluation(instance_file)

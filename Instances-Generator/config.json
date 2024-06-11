@@ -1,13 +1,13 @@
-
 {
-    "_comment": "12 qubit instances",
-    "n_satellites": 2,
+    "_comment": "16 qubit instances",
+    "n_satellites": 3,
     "n_ground_stations": 2,
     "n_communications": 2,
-    "delta": 0.7,
-    "h_hours": 450,
+    "delta": 0.9,
+    "h_hours": 500,
     "allowed_ground_stations": {
         "0": [0, 1],
-        "1": [2, 3]
+        "1": [1, 2],
+        "2": [3, 4]
     }
 }
