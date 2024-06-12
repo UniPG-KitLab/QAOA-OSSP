@@ -7,7 +7,6 @@ from create_circuit_over_list_coloring import OverconstrainedListColoring
 from utils import create_directories
 
 class Experiment:
-
     def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 200, n_point_opt: int = 10, penalty: int = 1, optimizer: str = "COBYLA", log_to_file: bool = False, save_samples: bool = False):
         self.fname = fname
         self.minp = minp
@@ -17,7 +16,7 @@ class Experiment:
         self.optimizer = optimizer
         self.log_to_file = log_to_file
         self.save_samples = save_samples
-        self.o = OverconstrainedListColoring("Test2/" + fname, optimizer)
+        self.o = OverconstrainedListColoring("Benchmark/test_16/" + fname, optimizer)
         self.o.penalty = penalty
         self.n_point_opt = n_point_opt
         
@@ -30,7 +29,7 @@ class Experiment:
             os.makedirs(results_dir)
         self.res_filename = os.path.join(results_dir, f"{self.split_name}_{optimizer}.csv")
 
-        # Flag for create the log and sampler directories
+        # Flag for creating the log and sampler directories
         if self.log_to_file or self.save_samples:
             _, log_file_path, sampler_dir = create_directories(self.split_name, f"{self.split_name}_{optimizer}.csv", create_log=self.log_to_file, create_sampler=self.save_samples)
             self.log_filename = log_file_path if self.log_to_file else None
@@ -138,3 +137,25 @@ class Experiment:
                 writer = csv.writer(f)
                 writer.writerow([self.fname, self.penalty, p, f"{best_opt[1]:.3f}", opt_x_str, str_distr])
 
+
+# Define the problem instances and penalties directly in the script
+probs16 = [
+    "Problem_5Sat3Gs_0_1.json",
+    "Problem_5Sat3Gs_0_2.json",
+    "Problem_5Sat3Gs_0_3.json",
+    "Problem_5Sat3Gs_1_0.json",
+    "Problem_5Sat3Gs_1_1.json",
+    "Problem_5Sat3Gs_1_3.json",
+    "Problem_5Sat3Gs_2_0.json",
+    "Problem_5Sat3Gs_2_1.json",
+    "Problem_5Sat3Gs_2_2.json"
+]
+
+# Define the penalties to be used
+penalties = [4, 5, 6]
+
+# Iterate over each problem instance and penalty, and run the experiment
+for prob in probs16:
+    for pen in penalties:
+        experiment = Experiment(prob, minp=8, maxp=12, n_samples=200, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
+        experiment.run()
