@@ -95,8 +95,8 @@ class SatelliteSchedulingGenerator:
                         node1, node2, _ = edge
                         colors_node1 = set(scheduling_problem["allowed_colors"][str(node1)])
                         colors_node2 = set(scheduling_problem["allowed_colors"][str(node2)])
-                        # Check if there is at least one common color
-                        if not colors_node1.isdisjoint(colors_node2):
+                        # Check if there is no common color
+                        if colors_node1.isdisjoint(colors_node2):
                             num_conflicts += 1
 
                     print(f"G(Edges)= {GEdges}")
