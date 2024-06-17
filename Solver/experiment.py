@@ -23,20 +23,10 @@ class Experiment:
         # Remove extension from fname for naming
         self.split_name = os.path.splitext(os.path.basename(fname))[0]
 
-        # Always create the results directory
-        results_dir = "results"
-        if not os.path.exists(results_dir):
-            os.makedirs(results_dir)
-        self.res_filename = os.path.join(results_dir, f"{self.split_name}_{optimizer}.csv")
-
-        # Flag for creating the log and sampler directories
-        if self.log_to_file or self.save_samples:
-            _, log_file_path, sampler_dir = create_directories(self.split_name, f"{self.split_name}_{optimizer}.csv", create_log=self.log_to_file, create_sampler=self.save_samples)
-            self.log_filename = log_file_path if self.log_to_file else None
-            self.sampler_dir = sampler_dir if self.save_samples else None
-        else:
-            self.log_filename = None
-            self.sampler_dir = None
+        # Create the results and optionally the log and sampler directories
+        self.res_filename, log_file_path, sampler_dir = create_directories(create_log=self.log_to_file, create_sampler=self.save_samples)
+        self.log_filename = log_file_path if self.log_to_file else None
+        self.sampler_dir = sampler_dir if self.save_samples else None
 
     def sample(self, p: int):
         """
@@ -138,14 +128,14 @@ class Experiment:
                 writer.writerow([self.fname, self.penalty, p, f"{best_opt[1]:.3f}", opt_x_str, str_distr])
 
 
-# Define the problem instances and penalties directly in the script
+
 probs16 = [
     "Problem_5Sat3Gs_0_1.json",
-    "Problem_5Sat3Gs_0_2.json",
-    "Problem_5Sat3Gs_0_3.json",
-    "Problem_5Sat3Gs_1_0.json",
-    "Problem_5Sat3Gs_1_1.json",
-    "Problem_5Sat3Gs_1_3.json",
+    "Problem_5Sat3Gs_0_4.json",
+    "Problem_5Sat3Gs_0_6.json",
+    "Problem_5Sat3Gs_1_4.json",
+    "Problem_5Sat3Gs_1_5.json",
+    "Problem_5Sat3Gs_1_8.json",
     "Problem_5Sat3Gs_2_0.json",
     "Problem_5Sat3Gs_2_1.json",
     "Problem_5Sat3Gs_2_2.json"
@@ -155,5 +145,5 @@ penalties = [5]
 
 for prob in probs16:
     for pen in penalties:
-        experiment = Experiment(prob, minp=7, maxp=15, n_samples=500, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
+        experiment = Experiment(prob, minp=1, maxp=1, n_samples=500, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
         experiment.run()

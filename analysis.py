@@ -1,11 +1,16 @@
 import pandas as pd
 import os
-import argparse
+import re
 
 def analysis(filename):
     df_in = pd.read_csv(filename)
     data = []
     nr, nc = df_in.shape
+
+    # Function to extract the first number from the filename
+    def extract_first_number(filename):
+        match = re.search(r'_(\d+)_', filename)
+        return int(match.group(1)) if match else None
 
     # Iterate over each row in the DataFrame
     for i in range(nr):
@@ -14,8 +19,8 @@ def analysis(filename):
         distr = {int(d[j]): int(d[j + 1]) for j in range(0, len(d), 2)}
         tot = sum(distr.values())
         
-        # Determine the theoretical minimum based on the filename
-        theor_min = 0 if df_in["Filename"][i].endswith("_0.json") else 1
+        # Determine the theoretical minimum based on the first number in the filename
+        theor_min = extract_first_number(df_in["Filename"][i])
         
         # Calculate probabilities and frequencies
         p_opt = distr.get(theor_min, 0) / tot
@@ -26,7 +31,7 @@ def analysis(filename):
         
         # Create a dictionary for the row
         row = {
-            "problem": 0 if df_in["Filename"][i].endswith("_0.json") else 1,
+            "problem": 0 if theor_min == 0 else 1 if theor_min == 1 else 2,
             "penalty": df_in["Penalty"][i],
             "p": df_in["P"][i],
             "prob_opt": p_opt,
@@ -40,14 +45,13 @@ def analysis(filename):
 
     df_out = pd.DataFrame(data)
 
-    output_filename = f"result_analysis_{os.path.basename(filename)}"
+    input_dir = os.path.dirname(filename)
+    output_filename = os.path.join(input_dir, f"analysis_{os.path.basename(filename)}")
 
     df_out.to_csv(output_filename, index=False)
     print(f"Results saved to {output_filename}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Process a CSV file for analysis.')
-    parser.add_argument('filename', type=str, help='the CSV file to be processed')
-    args = parser.parse_args()
+    filename = 'results/result.csv'
+    analysis(filename)
 
-    analysis(args.filename)
