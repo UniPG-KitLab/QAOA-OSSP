@@ -127,8 +127,6 @@ class Experiment:
                 writer = csv.writer(f)
                 writer.writerow([self.fname, self.penalty, p, f"{best_opt[1]:.3f}", opt_x_str, str_distr])
 
-
-
 probs16 = [
     "Problem_5Sat3Gs_0_1.json",
     "Problem_5Sat3Gs_0_4.json",
@@ -138,7 +136,7 @@ probs16 = [
     "Problem_5Sat3Gs_1_8.json",
     "Problem_5Sat3Gs_2_0.json",
     "Problem_5Sat3Gs_2_1.json",
-    "Problem_5Sat3Gs_2_2.json"
+    "Problem_5Sat3Gs_2_3.json"
 ]
 
 penalties = [5]
