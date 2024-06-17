@@ -16,7 +16,7 @@ class Experiment:
         self.optimizer = optimizer
         self.log_to_file = log_to_file
         self.save_samples = save_samples
-        self.o = OverconstrainedListColoring("Benchmark/test_16/" + fname, optimizer)
+        self.o = OverconstrainedListColoring("Benchmark/test_16_qubit/" + fname, optimizer)
         self.o.penalty = penalty
         self.n_point_opt = n_point_opt
         
@@ -151,11 +151,9 @@ probs16 = [
     "Problem_5Sat3Gs_2_2.json"
 ]
 
-# Define the penalties to be used
-penalties = [4, 5, 6]
+penalties = [5]
 
-# Iterate over each problem instance and penalty, and run the experiment
 for prob in probs16:
     for pen in penalties:
-        experiment = Experiment(prob, minp=8, maxp=12, n_samples=200, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
+        experiment = Experiment(prob, minp=7, maxp=15, n_samples=500, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
         experiment.run()
