@@ -139,9 +139,35 @@ probs16 = [
     "Problem_5Sat3Gs_2_3.json"
 ]
 
+probs18 = [
+    "Problem_3Sat2Gs_0_0.json",
+    "Problem_3Sat2Gs_1_4.json",
+    "Problem_5Sat3Gs_0_0.json",
+    "Problem_5Sat3Gs_0_1.json",
+    "Problem_5Sat3Gs_1_1.json",
+    "Problem_5Sat3Gs_1_7.json",
+    "Problem_6Sat2Gs_2_0.json",
+    "Problem_6Sat2Gs_2_1.json",
+    "Problem_6Sat2Gs_2_3.json"
+]
+
+probs20 = [
+    "Problem_4Sat2Gs_1_5.json",
+    "Problem_4Sat2Gs_1_6.json",
+    "Problem_4Sat2Gs_2_2.json",
+    "Problem_4Sat2Gs_2_4.json",
+    "Problem_5Sat4Gs_0_5.json",
+    "Problem_6Sat3Gs_0_2.json",
+    "Problem_6Sat3Gs_0_3.json",
+    "Problem_6Sat3Gs_0_7.json",
+    "Problem_6Sat3Gs_0_22.json"
+]
+
+
+
 penalties = [5]
 
 for prob in probs16:
     for pen in penalties:
-        experiment = Experiment(prob, minp=1, maxp=1, n_samples=500, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
+        experiment = Experiment(prob, minp=7, maxp=15, n_samples=500, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
         experiment.run()
