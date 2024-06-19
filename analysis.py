@@ -29,9 +29,8 @@ def analysis(filename):
         freq_min = distr[minimum]
         mode, freq_mode = max(((f, distr[f]) for f in distr), key=lambda c: c[1])
         
-        # Create a dictionary for the row
         row = {
-            "problem": 0 if theor_min == 0 else 1 if theor_min == 1 else 2,
+            "problem": df_in["Filename"][i],
             "penalty": df_in["Penalty"][i],
             "p": df_in["P"][i],
             "prob_opt": p_opt,
