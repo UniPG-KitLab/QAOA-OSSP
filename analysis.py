@@ -33,6 +33,8 @@ def analysis(filename):
             "problem": df_in["Filename"][i],
             "penalty": df_in["Penalty"][i],
             "p": df_in["P"][i],
+            "iter": df_in["Iter"][i],
+            "energy": df_in["Function_Value"][i],
             "prob_opt": p_opt,
             "prob_unfeas": p_unfeas,
             "min": minimum,
@@ -51,6 +53,5 @@ def analysis(filename):
     print(f"Results saved to {output_filename}")
 
 if __name__ == "__main__":
-    filename = 'results/result.csv'
+    filename = '/home/fabrizio/Scrivania/QAOA-SAT-SCH-OLC/results/result.csv'
     analysis(filename)
-
