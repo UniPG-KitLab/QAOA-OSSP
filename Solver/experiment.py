@@ -257,10 +257,7 @@ class Experiment:
 probs16 = [
     "Problem_5Sat3Gs_0_4.json", 
     "Problem_5Sat3Gs_0_6.json",
-    "Problem_5Sat3Gs_0_12.json",
-    "Problem_5Sat3Gs_1_4.json",
-    "Problem_5Sat3Gs_1_5.json",
-    "Problem_5Sat3Gs_1_8.json"     
+    "Problem_5Sat3Gs_0_12.json"
 ]
 
 probs18 = [
@@ -287,7 +284,7 @@ probs20 = [
     "Problem_6Sat3Gs_0_22.json"
 ]
 
-penalties = [1,2,3,4,5,6]
+penalties = [3.5]
 
 for prob in probs16:
     for pen in penalties:
