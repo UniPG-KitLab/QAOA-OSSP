@@ -7,7 +7,8 @@ from create_circuit_over_list_coloring import OverconstrainedListColoring
 from utils import create_directories
 
 class Experiment:
-    def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 200, n_point_opt: int = 10, penalty: int = 1, optimizer: str = "COBYLA", log_to_file: bool = False, save_samples: bool = False):
+    def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 100, n_point_opt: int = 10,
+                 penalty: int = 1, optimizer: str = "COBYLA", log_to_file: bool = False, save_samples: bool = False):
         """
         Initialize the Experiment class with parameters.
 
@@ -30,15 +31,16 @@ class Experiment:
         self.optimizer = optimizer
         self.log_to_file = log_to_file
         self.save_samples = save_samples
-        self.o = OverconstrainedListColoring("Benchmark/test_16_qubit/" + fname, optimizer)  # Load the problem instance
+        self.o = OverconstrainedListColoring("Benchmark/test_16_qubit/" + fname, optimizer)
         self.o.penalty = penalty
         self.n_point_opt = n_point_opt
-        
+
         # Remove extension from the filename for naming purposes
         self.split_name = os.path.splitext(os.path.basename(fname))[0]
 
         # Create the results and optionally the log and sampler directories
-        self.res_filename, log_file_path, sampler_dir = create_directories(create_log=self.log_to_file, create_sampler=self.save_samples)
+        self.res_filename, log_file_path, sampler_dir = create_directories(
+            create_log=self.log_to_file, create_sampler=self.save_samples)
         self.log_filename = log_file_path if self.log_to_file else None
         self.sampler_dir = sampler_dir if self.save_samples else None
 
@@ -52,8 +54,8 @@ class Experiment:
         Returns:
             tuple: The QAOA parameters and the estimated energy of the circuit.
         """
-        x = np.random.random(size=2 * p) * np.pi * 2  # Generate random QAOA parameters (2p parameters: gamma and beta)
-        m = self.o.estimate_qc(x)  
+        x = np.random.random(size=2 * p) * np.pi * 2
+        m = self.o.estimate_qc(x)
         return x, m
 
     def log(self, message):
@@ -67,12 +69,11 @@ class Experiment:
             with open(self.log_filename, "a") as flog:
                 print(message, file=flog)
         else:
-
             print(message)
 
     def run(self):
         self.log(f"Solving {self.fname} with penalty {self.penalty} using {self.optimizer}\n")
-        
+
         self.o.find_optimal_solution()
 
         if not os.path.exists(self.res_filename):
@@ -86,84 +87,172 @@ class Experiment:
         previous_runs_beta = []
 
         for p in range(self.minp, self.maxp + 1):
-            self.log(f"Phase {p}")
+            self.log(f"\nPhase {p}")
 
             # Create the QAOA circuit for the current phase
             self.o.create_qaoa_circuit(p)
             self.o.create_hamiltonian()
 
-            # For each run, optimize separately and save results for the next phase
-            for i in range(self.n_point_opt):
-                if p == 1:
-                    # For phase 1, sample random gamma[0] and beta[0] parameters for each run
-                    x_start, energy = self.sample(p)
-                else:
-                    # For phase 2 and beyond, insert new random gamma[p-1] and beta[p-1] at the start of the arrays
-                    x_start = np.concatenate([
-                        np.insert(previous_runs_gamma[i], 0, np.random.random() * np.pi * 2),  # Insert gamma[p-1] at the start
-                        np.insert(previous_runs_beta[i], 0, np.random.random() * np.pi * 2)    # Insert beta[p-1] at the start
-                    ])
-                    energy = self.o.estimate_qc(x_start)
+            if p == 1:
+                # Generate n_samples (100) random pairs (gamma, beta)
+                x_samples = []
+                energies = []
+                self.log(f"Generating {self.n_samples} random parameter pairs for p={p}")
 
-                # Log initial parameters before optimization
-                self.log(f"Initial parameters before optimization (p={p}, run={i+1}):")
-                self.log(f"Gamma: {x_start[:p]}")
-                self.log(f"Beta: {x_start[p:]}")
+                for idx in range(self.n_samples):
+                    x, energy = self.sample(p)
+                    x_samples.append(x)
+                    energies.append(energy)
+                    self.log(f"Sample {idx+1}: Energy = {energy:.6f}")
 
-                # Start the optimization for the current run
-                self.log(f"Start {self.optimizer} run #{i+1} with initial energy {energy:.3f}")
-                st = time.time()
-                opt_x, opt_fun = self.o.optimize_circuit_energy(x_start)
-                deltat = time.time() - st
+                # Take the best 10 pairs with the lowest energy
+                best_indices = np.argsort(energies)[:self.n_point_opt]
+                best_x_samples = [x_samples[i] for i in best_indices]
+                best_energies = [energies[i] for i in best_indices]
 
-                # Convert the optimization result to a scalar if it is an array
-                opt_fun_scalar = opt_fun.item() if isinstance(opt_fun, np.ndarray) else opt_fun
-                
-                self.log(f"End optimization run {i+1} after {deltat:.2f} s with improvement {opt_fun_scalar-energy:.3f}")
-                
-                # Log the optimized gamma and beta values after each run
-                self.log(f"Optimized parameters after run {i+1} (p={p}):")
-                self.log(f"Optimized Gamma: {opt_x[:p]}")
-                self.log(f"Optimized Beta: {opt_x[p:]}")
+                self.log("\nBest parameter pairs selected based on energy:")
+                for rank, idx in enumerate(best_indices):
+                    self.log(f"Rank {rank+1}: Sample {idx+1}, Energy = {energies[idx]:.6f}")
 
-                # Post-process and simulate the optimized quantum circuit
-                self.log("Start post-processing")
-                st = time.time()
-                self.o.create_qaoa_circuit(p)
-                n_shots = 2048
-                counts = self.o.simulate_qc(opt_x, shots=n_shots)
-                res = self.o.analyze_data(counts)
-                deltat = time.time() - st
+                previous_runs_gamma = []
+                previous_runs_beta = []
 
-                self.log(f"End post-processing after {deltat:.2f} s")
-                
-                # Save the optimized gamma and beta values for this specific run
-                if p == 1:
-                    # For phase 1, store gamma and beta values for use in subsequent phases
-                    previous_runs_gamma.append(opt_x[:p].tolist())  # Store optimized gamma values
-                    previous_runs_beta.append(opt_x[p:].tolist())   # Store optimized beta values
-                else:
-                    # For subsequent phases, update the gamma and beta for the current run
-                    previous_runs_gamma[i] = opt_x[:p].tolist()  # Update gamma values
-                    previous_runs_beta[i] = opt_x[p:].tolist()   # Update beta values
+                # Apply COBYLA to the best 10 pairs
+                for i in range(self.n_point_opt):
+                    x_start = best_x_samples[i]
+                    energy = best_energies[i]
 
-                # Save optimization results and simulation output
-                min_energy = res['min'].item() if isinstance(res['min'], np.ndarray) else res['min']
-                prob_opt = res['num_opt'] / n_shots
+                    self.log(f"\nOptimization Run {i+1} (p={p}):")
+                    self.log(f"Starting energy: {energy:.6f}")
 
-                self.log(f"Results: best found {min_energy}, final energy {opt_fun_scalar:.3f}, prob. of optimum {prob_opt:.3f}")
-                distr = res["distr"].most_common()
+                    # Start optimization
+                    self.log(f"Start {self.optimizer} run #{i+1}")
+                    st = time.time()
+                    opt_x, opt_fun = self.o.optimize_circuit_energy(x_start)
+                    deltat = time.time() - st
 
-                opt_x_str = json.dumps(opt_x.tolist())
-                str_distr = json.dumps(",".join(f"{k},{n}" for k, n in distr))
+                    # Convert opt_fun to scalar if necessary
+                    opt_fun_scalar = opt_fun.item() if isinstance(opt_fun, np.ndarray) else opt_fun
 
-                # Write results to the CSV file
-                with open(self.res_filename, "a", newline='') as f:
-                    writer = csv.writer(f)
-                    writer.writerow([self.fname, self.penalty, p, i+1, f"{opt_fun_scalar:.3f}", opt_x_str, str_distr])
+                    self.log(f"End optimization run {i+1} after {deltat:.2f} s with improvement {opt_fun_scalar - energy:.6f}")
 
-            self.log(f"Final results for {self.split_name}, best prob. opt {prob_opt:.3f}")
+                    # Save optimized gamma and beta for next phase
+                    previous_runs_gamma.append(opt_x[:p].tolist())
+                    previous_runs_beta.append(opt_x[p:].tolist())
 
+                    # Post-processing and simulation
+                    self.log("Start post-processing")
+                    st = time.time()
+                    self.o.create_qaoa_circuit(p)
+                    n_shots = 2048
+                    counts = self.o.simulate_qc(opt_x, shots=n_shots)
+                    res = self.o.analyze_data(counts)
+                    deltat = time.time() - st
+
+                    self.log(f"End post-processing after {deltat:.2f} s")
+
+                    # Save results
+                    min_energy = res['min'].item() if isinstance(res['min'], np.ndarray) else res['min']
+                    prob_opt = res['num_opt'] / n_shots
+
+                    self.log(f"Results: best found {min_energy}, final energy {opt_fun_scalar:.6f}, prob. of optimum {prob_opt:.6f}")
+                    distr = res["distr"].most_common()
+
+                    opt_x_str = json.dumps(opt_x.tolist())
+                    str_distr = json.dumps(",".join(f"{k},{n}" for k, n in distr))
+
+                    # Write results to the CSV file
+                    with open(self.res_filename, "a", newline='') as f:
+                        writer = csv.writer(f)
+                        writer.writerow([self.fname, self.penalty, p, i+1, f"{opt_fun_scalar:.6f}", opt_x_str, str_distr])
+
+            else:
+                # For p > 1
+                x_samples = []
+                energies = []
+                self.log(f"Extending previous parameters with new random values for p={p}")
+
+                # Generate new parameter vectors
+                for i in range(self.n_point_opt):
+                    gamma_prev = previous_runs_gamma[i]
+                    beta_prev = previous_runs_beta[i]
+
+                    # Generate new vectors by adding a new random (gamma, beta) pair
+                    for j in range(self.n_samples // self.n_point_opt):
+                        num_new_vectors = self.n_samples // self.n_point_opt
+                        gamma_new_value = np.random.random() * np.pi * 2
+                        beta_new_value = np.random.random() * np.pi * 2
+                        gamma_new = np.append(gamma_prev, gamma_new_value)
+                        beta_new = np.append(beta_prev, beta_new_value)
+                        x_start = np.concatenate([gamma_new, beta_new])
+                        x_samples.append(x_start)
+                        energy = self.o.estimate_qc(x_start)
+                        energies.append(energy)
+                        sample_idx = i * num_new_vectors + j + 1
+                        self.log(f"Sample {sample_idx}: Energy = {energy:.6f}")
+
+                # Take the vectors with the lowest energy
+                best_indices = np.argsort(energies)[:self.n_point_opt]
+                best_x_samples = [x_samples[i] for i in best_indices]
+                best_energies = [energies[i] for i in best_indices]
+
+                self.log("\nBest parameter sets selected based on energy:")
+                for rank, idx in enumerate(best_indices):
+                    self.log(f"Rank {rank+1}: Sample {idx+1}, Energy = {energies[idx]:.6f}")
+
+                previous_runs_gamma = []
+                previous_runs_beta = []
+
+                # Apply COBYLA to the best vectors
+                for i in range(self.n_point_opt):
+                    x_start = best_x_samples[i]
+                    energy = best_energies[i]
+
+                    self.log(f"\nOptimization Run {i+1} (p={p}):")
+                    self.log(f"Starting energy: {energy:.6f}")
+
+                    # Start optimization
+                    self.log(f"Start {self.optimizer} run #{i+1}")
+                    st = time.time()
+                    opt_x, opt_fun = self.o.optimize_circuit_energy(x_start)
+                    deltat = time.time() - st
+
+                    # Convert opt_fun to scalar if necessary
+                    opt_fun_scalar = opt_fun.item() if isinstance(opt_fun, np.ndarray) else opt_fun
+
+                    self.log(f"End optimization run {i+1} after {deltat:.2f} s with improvement {opt_fun_scalar - energy:.6f}")
+
+                    # Save optimized gamma and beta for next phase
+                    previous_runs_gamma.append(opt_x[:p].tolist())
+                    previous_runs_beta.append(opt_x[p:].tolist())
+
+                    # Post-processing and simulation
+                    self.log("Start post-processing")
+                    st = time.time()
+                    self.o.create_qaoa_circuit(p)
+                    n_shots = 2048
+                    counts = self.o.simulate_qc(opt_x, shots=n_shots)
+                    res = self.o.analyze_data(counts)
+                    deltat = time.time() - st
+
+                    self.log(f"End post-processing after {deltat:.2f} s")
+
+                    # Save results
+                    min_energy = res['min'].item() if isinstance(res['min'], np.ndarray) else res['min']
+                    prob_opt = res['num_opt'] / n_shots
+
+                    self.log(f"Results: best found {min_energy}, final energy {opt_fun_scalar:.6f}, prob. of optimum {prob_opt:.6f}")
+                    distr = res["distr"].most_common()
+
+                    opt_x_str = json.dumps(opt_x.tolist())
+                    str_distr = json.dumps(",".join(f"{k},{n}" for k, n in distr))
+
+                    # Write results to the CSV file
+                    with open(self.res_filename, "a", newline='') as f:
+                        writer = csv.writer(f)
+                        writer.writerow([self.fname, self.penalty, p, i+1, f"{opt_fun_scalar:.6f}", opt_x_str, str_distr])
+
+            self.log(f"\nFinal results for {self.split_name}, best prob. opt {prob_opt:.6f}\n")
 
 probs16 = [
     "Problem_5Sat3Gs_0_4.json", 
