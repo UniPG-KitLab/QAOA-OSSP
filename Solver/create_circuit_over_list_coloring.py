@@ -348,7 +348,7 @@ class OverconstrainedListColoring:
             return self.estimate_qc(x)
 
         opt = so.minimize(objfun, x_init, method="COBYLA")
-        return opt.x, opt.fun
+        return opt.x, opt.fun, opt.nfev
     
     def optimize_circuit_energy_ADAM(self, x_init, lr=0.05, max_iter=200):
         """

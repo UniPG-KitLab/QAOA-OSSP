@@ -72,14 +72,17 @@ class Experiment:
             print(message)
 
     def run(self):
+        total_start_time = time.time()  # Algo total time 
         self.log(f"Solving {self.fname} with penalty {self.penalty} using {self.optimizer}\n")
 
         self.o.find_optimal_solution()
 
+        
         if not os.path.exists(self.res_filename):
             with open(self.res_filename, "w", newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(["Filename", "Penalty", "P", "Iter", "Function_Value", "Optimal_X", "Distribution"])
+                writer.writerow(["Filename", "Penalty", "P", "Iter", "Function_Value",
+                                 "Optimal_X", "Distribution", "Num_Evaluations", "Phase_Time", "Total_Time"])
 
         self.log(f"Theoretical optimal solution value {self.o.f_optimum} found with prob. {self.o.prob_optimum:.3f}")
 
@@ -87,6 +90,7 @@ class Experiment:
         previous_runs_beta = []
 
         for p in range(self.minp, self.maxp + 1):
+            phase_start_time = time.time()  # Phase time
             self.log(f"\nPhase {p}")
 
             # Create the QAOA circuit for the current phase
@@ -98,7 +102,6 @@ class Experiment:
                 x_samples = []
                 energies = []
                 self.log(f"Generating {self.n_samples} random parameter pairs for p={p}")
-
                 for idx in range(self.n_samples):
                     x, energy = self.sample(p)
                     x_samples.append(x)
@@ -117,7 +120,7 @@ class Experiment:
                 previous_runs_gamma = []
                 previous_runs_beta = []
 
-                # Apply COBYLA to the best 10 pairs
+                # Apply COBYLA to the best n pairs
                 for i in range(self.n_point_opt):
                     x_start = best_x_samples[i]
                     energy = best_energies[i]
@@ -127,14 +130,14 @@ class Experiment:
 
                     # Start optimization
                     self.log(f"Start {self.optimizer} run #{i+1}")
-                    st = time.time()
-                    opt_x, opt_fun = self.o.optimize_circuit_energy(x_start)
-                    deltat = time.time() - st
+                    opt_st = time.time()
+                    opt_x, opt_fun, num_evaluations = self.o.optimize_circuit_energy(x_start)
+                    opt_deltat = time.time() - opt_st
 
                     # Convert opt_fun to scalar if necessary
                     opt_fun_scalar = opt_fun.item() if isinstance(opt_fun, np.ndarray) else opt_fun
 
-                    self.log(f"End optimization run {i+1} after {deltat:.2f} s with improvement {opt_fun_scalar - energy:.6f}")
+                    self.log(f"End optimization run {i+1} after {opt_deltat:.2f} s with improvement {opt_fun_scalar - energy:.6f}, number of evaluations: {num_evaluations}")
 
                     # Save optimized gamma and beta for next phase
                     previous_runs_gamma.append(opt_x[:p].tolist())
@@ -147,11 +150,11 @@ class Experiment:
                     n_shots = 2048
                     counts = self.o.simulate_qc(opt_x, shots=n_shots)
                     res = self.o.analyze_data(counts)
-                    deltat = time.time() - st
+                    postproc_deltat = time.time() - st
 
-                    self.log(f"End post-processing after {deltat:.2f} s")
+                    self.log(f"End post-processing after {postproc_deltat:.2f} s")
 
-                    # Save results
+                    # Save reuslts
                     min_energy = res['min'].item() if isinstance(res['min'], np.ndarray) else res['min']
                     prob_opt = res['num_opt'] / n_shots
 
@@ -161,10 +164,15 @@ class Experiment:
                     opt_x_str = json.dumps(opt_x.tolist())
                     str_distr = json.dumps(",".join(f"{k},{n}" for k, n in distr))
 
+                    # Calcolate comulative time 
+                    total_time = time.time() - total_start_time
+                    phase_time = time.time() - phase_start_time
+
                     # Write results to the CSV file
                     with open(self.res_filename, "a", newline='') as f:
                         writer = csv.writer(f)
-                        writer.writerow([self.fname, self.penalty, p, i+1, f"{opt_fun_scalar:.6f}", opt_x_str, str_distr])
+                        writer.writerow([self.fname, self.penalty, p, i+1, f"{opt_fun_scalar:.6f}",
+                                         opt_x_str, str_distr, num_evaluations, f"{phase_time:.2f}", f"{total_time:.2f}"])
 
             else:
                 # For p > 1
@@ -172,16 +180,17 @@ class Experiment:
                 energies = []
                 self.log(f"Extending previous parameters with new random values for p={p}")
 
+                num_new_vectors = self.n_samples // self.n_point_opt
+
                 # Generate new parameter vectors
                 for i in range(self.n_point_opt):
                     gamma_prev = previous_runs_gamma[i]
                     beta_prev = previous_runs_beta[i]
 
                     # Generate new vectors by adding a new random (gamma, beta) pair
-                    for j in range(self.n_samples // self.n_point_opt):
-                        num_new_vectors = self.n_samples // self.n_point_opt
+                    for j in range(num_new_vectors):
                         gamma_new_value = np.random.random() * np.pi * 2
-                        beta_new_value = np.random.random() * np.pi * 2
+                        beta_new_value = np.random.random() * np.pi * 2 
                         gamma_new = np.append(gamma_prev, gamma_new_value)
                         beta_new = np.append(beta_prev, beta_new_value)
                         x_start = np.concatenate([gamma_new, beta_new])
@@ -211,31 +220,30 @@ class Experiment:
                     self.log(f"\nOptimization Run {i+1} (p={p}):")
                     self.log(f"Starting energy: {energy:.6f}")
 
-                    # Start optimization
+                    # Start Optimization
                     self.log(f"Start {self.optimizer} run #{i+1}")
-                    st = time.time()
-                    opt_x, opt_fun = self.o.optimize_circuit_energy(x_start)
-                    deltat = time.time() - st
+                    opt_st = time.time()
+                    opt_x, opt_fun, num_evaluations = self.o.optimize_circuit_energy(x_start)
+                    opt_deltat = time.time() - opt_st
 
                     # Convert opt_fun to scalar if necessary
                     opt_fun_scalar = opt_fun.item() if isinstance(opt_fun, np.ndarray) else opt_fun
 
-                    self.log(f"End optimization run {i+1} after {deltat:.2f} s with improvement {opt_fun_scalar - energy:.6f}")
+                    self.log(f"End optimization run {i+1} after {opt_deltat:.2f} s with improvement {opt_fun_scalar - energy:.6f}, number of evaluations: {num_evaluations}")
 
                     # Save optimized gamma and beta for next phase
                     previous_runs_gamma.append(opt_x[:p].tolist())
                     previous_runs_beta.append(opt_x[p:].tolist())
 
-                    # Post-processing and simulation
                     self.log("Start post-processing")
                     st = time.time()
                     self.o.create_qaoa_circuit(p)
                     n_shots = 2048
                     counts = self.o.simulate_qc(opt_x, shots=n_shots)
                     res = self.o.analyze_data(counts)
-                    deltat = time.time() - st
+                    postproc_deltat = time.time() - st
 
-                    self.log(f"End post-processing after {deltat:.2f} s")
+                    self.log(f"End post-processing after {postproc_deltat:.2f} s")
 
                     # Save results
                     min_energy = res['min'].item() if isinstance(res['min'], np.ndarray) else res['min']
@@ -247,12 +255,26 @@ class Experiment:
                     opt_x_str = json.dumps(opt_x.tolist())
                     str_distr = json.dumps(",".join(f"{k},{n}" for k, n in distr))
 
+                    # Calcola il tempo cumulativo
+                    total_time = time.time() - total_start_time
+                    phase_time = time.time() - phase_start_time
+
                     # Write results to the CSV file
                     with open(self.res_filename, "a", newline='') as f:
                         writer = csv.writer(f)
-                        writer.writerow([self.fname, self.penalty, p, i+1, f"{opt_fun_scalar:.6f}", opt_x_str, str_distr])
+                        writer.writerow([self.fname, self.penalty, p, i+1, f"{opt_fun_scalar:.6f}",
+                                         opt_x_str, str_distr, num_evaluations, f"{phase_time:.2f}", f"{total_time:.2f}"])
 
-            self.log(f"\nFinal results for {self.split_name}, best prob. opt {prob_opt:.6f}\n")
+            
+            # End of one phase
+            phase_end_time = time.time()
+            phase_duration = phase_end_time - phase_start_time
+            self.log(f"Time taken for phase {p}: {phase_duration:.2f} seconds")
+
+        # End of all phase
+        total_end_time = time.time()
+        total_duration = total_end_time - total_start_time
+        self.log(f"\nTotal execution time: {total_duration:.2f} seconds")
 
 probs16 = [
     "Problem_5Sat3Gs_0_4.json", 
@@ -288,5 +310,5 @@ penalties = [3.5]
 
 for prob in probs16:
     for pen in penalties:
-        experiment = Experiment(prob, minp=1, maxp=8, n_samples=100, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=False, save_samples=False)
+        experiment = Experiment(prob, minp=1, maxp=8, n_samples=100, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
         experiment.run()
