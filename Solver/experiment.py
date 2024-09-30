@@ -54,7 +54,7 @@ class Experiment:
         Returns:
             tuple: The QAOA parameters and the estimated energy of the circuit.
         """
-        x = np.random.random(size=2 * p) * np.pi * 2
+        x = np.random.random(size=2 * p) * np.pi // self.penalty
         m = self.o.estimate_qc(x)
         return x, m
 
@@ -189,8 +189,8 @@ class Experiment:
 
                     # Generate new vectors by adding a new random (gamma, beta) pair
                     for j in range(num_new_vectors):
-                        gamma_new_value = np.random.random() * np.pi * 2
-                        beta_new_value = np.random.random() * np.pi * 2 
+                        gamma_new_value = np.random.random() * np.pi // self.penalty
+                        beta_new_value = np.random.random() * np.pi // self.penalty
                         gamma_new = np.append(gamma_prev, gamma_new_value)
                         beta_new = np.append(beta_prev, beta_new_value)
                         x_start = np.concatenate([gamma_new, beta_new])
@@ -279,7 +279,10 @@ class Experiment:
 probs16 = [
     "Problem_5Sat3Gs_0_4.json", 
     "Problem_5Sat3Gs_0_6.json",
-    "Problem_5Sat3Gs_0_12.json"
+    "Problem_5Sat3Gs_0_12.json",
+    "Problem_5Sat3Gs_1_4.json",
+    "Problem_5Sat3Gs_1_5.json",
+    "Problem_5Sat3Gs_1_8.json"
 ]
 
 probs18 = [
@@ -306,9 +309,9 @@ probs20 = [
     "Problem_6Sat3Gs_0_22.json"
 ]
 
-penalties = [3.5]
+penalties = [1.5]
 
 for prob in probs16:
     for pen in penalties:
-        experiment = Experiment(prob, minp=1, maxp=8, n_samples=100, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
+        experiment = Experiment(prob, minp=1, maxp=10, n_samples=100, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
         experiment.run()

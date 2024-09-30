@@ -317,39 +317,47 @@ class OverconstrainedListColoring:
             "num_unfeas": sum(freqs[i] for i in range(len(sols)) if obj_f[i] >= 1000)
         }
 
-    def optimize_circuit_energy(self, x_init, lr=0.05, max_iter=1000):
+    def optimize_circuit_energy(self, x_init, lr=0.05, max_iter_adam=1000, maxiter_cobyla=3000):
         """
         Optimize the QAOA circuit to minimize the energy.
 
         Args:
             x_init (list[float]): Initial parameters for optimization.
-        
+            lr (float): Learning rate for ADAM.
+            max_iter (int): Maximum number of iterations for ADAM.
+            maxiter_cobyla (int): Maximum number of iterations for COBYLA.
+
         Returns:
-            tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
+            tuple: (x, f(x), num_evaluations) where x is the optimal angles,
+                   f(x) is the value of the objective function, and num_evaluations is the number of function evaluations.
         """
         if self.optimizer == "COBYLA":
-            return self.optimize_circuit_energy_cobyla(x_init)
-        elif self.optimizer== "ADAM":
-            return self.optimize_circuit_energy_ADAM(x_init, lr, max_iter)
+            return self.optimize_circuit_energy_cobyla(x_init, maxiter=maxiter_cobyla)
+        elif self.optimizer == "ADAM":
+            return self.optimize_circuit_energy_ADAM(x_init, lr, max_iter_adam)
         else:
             raise ValueError(f"Unknown optimizer: {self.optimizer}")
 
-    def optimize_circuit_energy_cobyla(self, x_init):
+    def optimize_circuit_energy_cobyla(self, x_init, maxiter=3000):
         """
         Optimize the QAOA circuit to minimize the energy using COBYLA.
 
         Args:
             x_init (list[float]): Initial parameters for optimization.
-        
+            maxiter (int): Maximum number of iterations for COBYLA.
+
         Returns:
-            tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
+            tuple: (x, f(x), num_evaluations) where x is the optimal angles,
+                   f(x) is the value of the objective function, and num_evaluations is the number of function evaluations.
         """
         def objfun(x):
             return self.estimate_qc(x)
 
-        opt = so.minimize(objfun, x_init, method="COBYLA")
+        options = {'maxiter': maxiter}
+
+        opt = so.minimize(objfun, x_init, method="COBYLA", options=options)
         return opt.x, opt.fun, opt.nfev
-    
+
     def optimize_circuit_energy_ADAM(self, x_init, lr=0.05, max_iter=200):
         """
         Optimize the QAOA circuit to minimize the energy using ADAM.
@@ -363,13 +371,14 @@ class OverconstrainedListColoring:
             tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
         """
         optimizer = ADAM(maxiter=max_iter, lr=lr)
-        
+
         def objfun(x):
             return np.array([self.estimate_qc(x)])
-        
+
         result = optimizer.minimize(fun=objfun, x0=x_init)
-        
+
         return result.x, result.fun
+
             
     def CGp(self, control_index, target_index, p: float):
         """
