@@ -31,7 +31,7 @@ class Experiment:
         self.optimizer = optimizer
         self.log_to_file = log_to_file
         self.save_samples = save_samples
-        self.o = OverconstrainedListColoring("Benchmark/test_16_qubit/" + fname, optimizer)
+        self.o = OverconstrainedListColoring("../Benchmark/test_16_qubit/" + fname, optimizer)
         self.o.penalty = penalty
         self.n_point_opt = n_point_opt
 

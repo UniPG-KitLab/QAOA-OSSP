@@ -1,0 +1,6 @@
+- Fare test pi / w 
+- Aumentare fasi di 2 
+- Vedere differenza tra cp e rzz 
+- Aggiungere statistiche ottimizzatore 
+    - Dopo quanto tempo venogno ottenuti risultati 
+    - Numero di volte che viene chiamato
