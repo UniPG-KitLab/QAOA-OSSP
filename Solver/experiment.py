@@ -30,7 +30,7 @@ class Experiment:
         self.optimizer = optimizer
         self.log_to_file = log_to_file
         self.save_samples = save_samples
-        self.o = OverconstrainedListColoring("../Benchmark/test_16_qubit/" + fname, optimizer)
+        self.o = OverconstrainedListColoring("../test_16_qubit/" + fname, optimizer)
         self.o.penalty = penalty
         self.n_point_opt = n_point_opt
 
@@ -312,5 +312,5 @@ penalties = [1.5]
 
 for prob in probs16:
     for pen in penalties:
-        experiment = Experiment(prob, minp=1, maxp=10, n_samples=100, n_point_opt=10, penalty=pen, optimizer="SPSA", log_to_file=True, save_samples=False)
+        experiment = Experiment(prob, minp=1, maxp=8, n_samples=100, n_point_opt=10, penalty=pen, optimizer="SPSA", log_to_file=True, save_samples=False)
         experiment.run()
