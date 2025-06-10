@@ -7,8 +7,7 @@ from create_circuit_over_list_coloring import OverconstrainedListColoring
 from utils import create_directories
 
 class Experiment:
-    def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 100, n_point_opt: int = 10,
-                 penalty: int = 1, optimizer: str = "COBYLA", log_to_file: bool = False, save_samples: bool = False):
+    def __init__(self, fname: str, minp: int, maxp: int, n_samples: int = 100, n_point_opt: int = 10, penalty: int = 1, optimizer: str = "COBYLA", log_to_file: bool = False, save_samples: bool = False):
         """
         Initialize the Experiment class with parameters.
 
@@ -313,5 +312,5 @@ penalties = [1.5]
 
 for prob in probs16:
     for pen in penalties:
-        experiment = Experiment(prob, minp=1, maxp=10, n_samples=100, n_point_opt=10, penalty=pen, optimizer="COBYLA", log_to_file=True, save_samples=False)
+        experiment = Experiment(prob, minp=1, maxp=10, n_samples=100, n_point_opt=10, penalty=pen, optimizer="SPSA", log_to_file=True, save_samples=False)
         experiment.run()

@@ -7,7 +7,7 @@ from qiskit.quantum_info import SparsePauliOp
 import time
 import scipy.optimize as so
 from collections import Counter
-from qiskit_algorithms.optimizers import ADAM
+from qiskit_algorithms.optimizers import SPSA
 
 sim = StatevectorSampler()
 est = StatevectorEstimator()
@@ -317,7 +317,7 @@ class OverconstrainedListColoring:
             "num_unfeas": sum(freqs[i] for i in range(len(sols)) if obj_f[i] >= 1000)
         }
 
-    def optimize_circuit_energy(self, x_init, lr=0.05, max_iter_adam=1000, maxiter_cobyla=3000):
+    def optimize_circuit_energy(self, x_init, lr=0.05, max_iter_SPSA=1000, maxiter_cobyla=3000):
         """
         Optimize the QAOA circuit to minimize the energy.
 
@@ -333,8 +333,8 @@ class OverconstrainedListColoring:
         """
         if self.optimizer == "COBYLA":
             return self.optimize_circuit_energy_cobyla(x_init, maxiter=maxiter_cobyla)
-        elif self.optimizer == "ADAM":
-            return self.optimize_circuit_energy_ADAM(x_init, lr, max_iter_adam)
+        elif self.optimizer == "SPSA":
+            return self.optimize_circuit_energy_SPSA(x_init, max_iter=max_iter_SPSA)
         else:
             raise ValueError(f"Unknown optimizer: {self.optimizer}")
 
@@ -358,19 +358,18 @@ class OverconstrainedListColoring:
         opt = so.minimize(objfun, x_init, method="COBYLA", options=options)
         return opt.x, opt.fun, opt.nfev
 
-    def optimize_circuit_energy_ADAM(self, x_init, lr=0.05, max_iter=200):
+    def optimize_circuit_energy_SPSA(self, x_init, max_iter=200):
         """
-        Optimize the QAOA circuit to minimize the energy using ADAM.
+        Optimize the QAOA circuit to minimize the energy using SPSA.
 
         Args:
             x_init (list[float]): Initial parameters for optimization.
-            lr (float): Learning rate for ADAM.
             max_iter (int): Maximum number of iterations.
 
         Returns:
             tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
         """
-        optimizer = ADAM(maxiter=max_iter, lr=lr)
+        optimizer = SPSA(maxiter=max_iter)
 
         def objfun(x):
             return np.array([self.estimate_qc(x)])
