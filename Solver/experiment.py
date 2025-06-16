@@ -30,7 +30,7 @@ class Experiment:
         self.optimizer = optimizer
         self.log_to_file = log_to_file
         self.save_samples = save_samples
-        self.o = OverconstrainedListColoring("../test_16_qubit/" + fname, optimizer)
+        self.o = OverconstrainedListColoring("Benchmark/test_16_qubit/" + fname, optimizer)
         self.o.penalty = penalty
         self.n_point_opt = n_point_opt
 
@@ -130,7 +130,7 @@ class Experiment:
                     # Start optimization
                     self.log(f"Start {self.optimizer} run #{i+1}")
                     opt_st = time.time()
-                    opt_x, opt_fun, num_evaluations = self.o.optimize_circuit_energy(x_start)
+                    opt_x, opt_fun, num_evaluations = self.o.optimize_circuit_energy(x_init=x_start)
                     opt_deltat = time.time() - opt_st
 
                     # Convert opt_fun to scalar if necessary

@@ -317,7 +317,7 @@ class OverconstrainedListColoring:
             "num_unfeas": sum(freqs[i] for i in range(len(sols)) if obj_f[i] >= 1000)
         }
 
-    def optimize_circuit_energy(self, x_init, lr=0.05, max_iter_SPSA=1000, maxiter_cobyla=3000):
+    def optimize_circuit_energy(self, x_init, max_iter_SPSA=1000, maxiter_cobyla=3000):
         """
         Optimize the QAOA circuit to minimize the energy.
 
@@ -370,13 +370,14 @@ class OverconstrainedListColoring:
             tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
         """
         optimizer = SPSA(maxiter=max_iter)
+        
 
         def objfun(x):
             return np.array([self.estimate_qc(x)])
 
         result = optimizer.minimize(fun=objfun, x0=x_init)
 
-        return result.x, result.fun
+        return result.x, result.fun, result.nfev
 
             
     def CGp(self, control_index, target_index, p: float):
