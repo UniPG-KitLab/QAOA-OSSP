@@ -377,7 +377,7 @@ class OverconstrainedListColoring:
 
         result = optimizer.minimize(fun=objfun, x0=x_init)
 
-        return result.x, result.fun, result.nfev
+        return result.x, result.fun, result.nit
 
             
     def CGp(self, control_index, target_index, p: float):
