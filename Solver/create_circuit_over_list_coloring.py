@@ -2,13 +2,12 @@ from qiskit import QuantumCircuit
 import numpy as np
 import json
 from qiskit.primitives import StatevectorSampler, StatevectorEstimator
-from qiskit.circuit import ParameterVector, Parameter
+from qiskit.circuit import ParameterVector
 from qiskit.quantum_info import SparsePauliOp
 import time
 import scipy.optimize as so
 from collections import Counter
-import torch 
-import torch.optim as optim 
+from qiskit_algorithms.optimizers import SPSA
 
 sim = StatevectorSampler()
 est = StatevectorEstimator()
@@ -289,8 +288,9 @@ class OverconstrainedListColoring:
         st = time.time()
         res = est.run([pub]).result()[0]
         et = time.time()
+        
         return res.data.evs
-
+    
     def analyze_data(self, counts):
         """
         Analyze the data obtained from the quantum circuit sampler
@@ -317,127 +317,69 @@ class OverconstrainedListColoring:
             "num_unfeas": sum(freqs[i] for i in range(len(sols)) if obj_f[i] >= 1000)
         }
 
-    def optimize_circuit_energy(self, x_init, lr=0.05, max_iter=200):
+    def optimize_circuit_energy(self, x_init, max_iter_SPSA=1000, maxiter_cobyla=3000):
         """
         Optimize the QAOA circuit to minimize the energy.
 
         Args:
             x_init (list[float]): Initial parameters for optimization.
-        
+            lr (float): Learning rate for ADAM.
+            max_iter (int): Maximum number of iterations for ADAM.
+            maxiter_cobyla (int): Maximum number of iterations for COBYLA.
+
         Returns:
-            tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
+            tuple: (x, f(x), num_evaluations) where x is the optimal angles,
+                   f(x) is the value of the objective function, and num_evaluations is the number of function evaluations.
         """
         if self.optimizer == "COBYLA":
-            return self.optimize_circuit_energy_cobyla(x_init)
-        elif self.optimizer == "SGD":
-            return self.optimize_circuit_energy_sgd(x_init, lr, max_iter)
+            return self.optimize_circuit_energy_cobyla(x_init, maxiter=maxiter_cobyla)
+        elif self.optimizer == "SPSA":
+            return self.optimize_circuit_energy_SPSA(x_init, max_iter=max_iter_SPSA)
         else:
             raise ValueError(f"Unknown optimizer: {self.optimizer}")
 
-    def optimize_circuit_energy_cobyla(self, x_init):
+    def optimize_circuit_energy_cobyla(self, x_init, maxiter=3000):
         """
         Optimize the QAOA circuit to minimize the energy using COBYLA.
 
         Args:
             x_init (list[float]): Initial parameters for optimization.
-        
+            maxiter (int): Maximum number of iterations for COBYLA.
+
         Returns:
-            tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
+            tuple: (x, f(x), num_evaluations) where x is the optimal angles,
+                   f(x) is the value of the objective function, and num_evaluations is the number of function evaluations.
         """
         def objfun(x):
             return self.estimate_qc(x)
 
-        opt = so.minimize(objfun, x_init, method="COBYLA")
-        return opt.x, opt.fun
+        options = {'maxiter': maxiter}
 
-    def optimize_circuit_energy_sgd(self, x_init, lr=0.05, max_iter=200):
+        opt = so.minimize(objfun, x_init, method="COBYLA", options=options)
+        return opt.x, opt.fun, opt.nfev
+
+    def optimize_circuit_energy_SPSA(self, x_init, max_iter=200):
         """
-        Optimize the QAOA circuit to minimize the energy using SGD.
+        Optimize the QAOA circuit to minimize the energy using SPSA.
 
         Args:
             x_init (list[float]): Initial parameters for optimization.
-            lr (float): Learning rate for SGD.
-            max_iter (int): Maximum number of iterations.
-        
-        Returns:
-            tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
-        """
-        x = torch.tensor(x_init, requires_grad=True)
-        optimizer = optim.SGD([x], lr=lr)
-
-        for _ in range(max_iter):
-            optimizer.zero_grad()
-            loss = torch.tensor(self.estimate_qc(x.detach().numpy()), requires_grad=True)
-            loss.backward()
-            optimizer.step()
-        
-        return x.detach().numpy(), loss.item()
-
-    def optimize_circuit_prob_succ(self, x_init, lr=0.05, max_iter=200):
-        """
-        Optimize the QAOA circuit to maximize the probability of success.
-
-        Args:
-            x_init (list[float]): Initial parameters for optimization.
-            lr (float): Learning rate for SGD.
             max_iter (int): Maximum number of iterations.
 
         Returns:
             tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
         """
-        if self.optimizer == "COBYLA":
-            return self.optimize_circuit_prob_succ_cobyla(x_init)
-        elif self.optimizer == "SGD":
-            return self.optimize_circuit_prob_succ_sgd(x_init, lr, max_iter)
-        else:
-            raise ValueError(f"Unknown optimizer: {self.optimizer}")
-
-    def optimize_circuit_prob_succ_cobyla(self, x_init):
-        """
-        Optimize the QAOA circuit to maximize the probability of success using COBYLA.
-
-        Args:
-            x_init (list[float]): Initial parameters for optimization.
+        optimizer = SPSA(maxiter=max_iter)
         
-        Returns:
-            tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
-        """
-        def objfun(x):
-            counts = self.simulate_qc(x)
-            res = self.analyze_data(counts)
-            return -res["num_opt"]
-
-        opt = so.minimize(objfun, x_init, method="COBYLA")
-        return opt.x, opt.fun
-
-    def optimize_circuit_prob_succ_sgd(self, x_init, lr=0.05, max_iter=200):
-        """
-        Optimize the QAOA circuit to maximize the probability of success using SGD.
-
-        Args:
-            x_init (list[float]): Initial parameters for optimization.
-            lr (float): Learning rate for SGD.
-            max_iter (int): Maximum number of iterations.
-
-        Returns:
-            tuple: (x, f(x)) where x is the optimal angles and f(x) is the value of the objective function.
-        """
-        x = torch.tensor(x_init, requires_grad=True)
-        optimizer = optim.SGD([x], lr=lr)
 
         def objfun(x):
-            counts = self.simulate_qc(x.detach().numpy())
-            res = self.analyze_data(counts)
-            return -res["num_opt"]
+            return np.array([self.estimate_qc(x)])
 
-        for _ in range(max_iter):
-            optimizer.zero_grad()
-            loss = torch.tensor(objfun(x), requires_grad=True)
-            loss.backward()
-            optimizer.step()
+        result = optimizer.minimize(fun=objfun, x0=x_init)
 
-        return x.detach().numpy(), loss.item()
+        return result.x, result.fun, result.nit
 
+            
     def CGp(self, control_index, target_index, p: float):
         """
         Ref: https://onlinelibrary.wiley.com/doi/pdf/10.1002/qute.201900015
@@ -541,5 +483,3 @@ class OverconstrainedListColoring:
 			#
             self.CGp(indices[3], indices[7], 1 / 2)
             self.qc.cx(indices[7], indices[3])
-
-
