@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Load the CSV file
-file_path = '/home/fabrizio/Scrivania/QAOA-SAT-SCH-OLC/results_cobyla_3000/analysis_result.csv'
+file_path = '/home/fabrizio/Scrivania/QAOA-SAT-SCH-OLC/results_SPSA_1000/analysis_result.csv'
 data = pd.read_csv(file_path)
 
 # Remove whitespace from column names

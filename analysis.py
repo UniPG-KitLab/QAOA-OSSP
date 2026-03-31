@@ -65,5 +65,5 @@ def analysis(filename):
     print(f"Results saved to {output_filename}")
 
 if __name__ == "__main__":
-    filename = '/home/fabrizio/Scrivania/QAOA-SAT-SCH-OLC/results/result.csv'
+    filename = '/home/fabrizio/Scrivania/QAOA-SAT-SCH-OLC/results_SPSA_1000/result.csv'
     analysis(filename)
